@@ -17,5 +17,6 @@ int init();
 void accept_request(void *arg);
 int get_line(int client_sock,char *buf,int size);
 void not_found(int client_sock);
+void get_index(int client_sock);
 
 #endif

@@ -98,16 +98,50 @@ void accept_request(void *arg)
         index++;
     }
     url[url_i]='\0';
+    printf("%s\n",url);
     if(!strcmp(method,"GET"))
     {
-
+        if(!strcmp(url,"/"))
+        {
+            get_index(client);
+        }
     }
     if(!strcmp(method,"POST"))
     {
 
     }
-    not_found(client);
     close(client);
+}
+
+void get_index(int client)
+{
+    char buf[1024];
+    sprintf(buf, "HTTP/1.1 200 OK\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "Server: NyServer/0.1.0\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "Content-Type: text/html;charset=utf-8\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "\r\n");
+    send(client, buf, strlen(buf), 0);
+    FILE *fp;
+    if((fp=fopen("www/index.html","r"))==NULL)
+    {
+        sprintf(buf, "<HTML><TITLE>Welcome</TITLE>\r\n");
+        send(client, buf, strlen(buf), 0);
+        sprintf(buf, "<BODY><P>Welcome to my site!</P>\r\n");
+        send(client, buf, strlen(buf), 0);
+        sprintf(buf, "</BODY></HTML>\r\n");
+        send(client, buf, strlen(buf), 0);
+        return;
+    }
+    while(fgets(buf,1024,fp)!=NULL)
+    {
+        send(client,buf,strlen(buf),0);
+        sprintf(buf, "\r\n");
+        send(client, buf, strlen(buf),0);
+    }
+    fclose(fp);
 }
 
 void not_found(int client)
