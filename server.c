@@ -71,16 +71,70 @@ int get_line(int client_sock,char *buf,int size)
     return read_size;
 }
 
+struct RequestArg *get_request_arg(char *url,int index)
+{
+    struct RequestArg * request_arg=(struct RequestArg*)malloc(sizeof(struct RequestArg));
+    struct RequestArg *tail=request_arg;
+    tail->next=NULL;
+    tail->name=NULL;
+
+    while(url[index]!='\0')
+    {
+        index++;
+        char name[255];
+        char value[255];
+        int i=0;
+        while(url[index]!='='&&url[index]!='\0')
+        {
+            name[i]=url[index];
+            i++;
+            index++;
+        }
+        name[i]='\0';
+
+        i=0;
+        index++;
+        while(url[index]!='\0'&&url[index]!='&')
+        {
+            value[i]=url[index];
+            index++;
+            i++;
+        }
+        value[i]='\0';
+        if(strcmp(value,"")==0)
+            continue;
+        tail->name=(char *)malloc(sizeof(char)*strlen(name));
+        strcpy(tail->name,name);
+
+        tail->value=(char *)malloc(sizeof(char)*strlen(value));
+        strcpy(tail->value,value);
+
+        tail->next=(struct RequestArg*)malloc(sizeof(struct RequestArg));
+        tail=tail->next;
+        tail->next=NULL;
+        tail->name=NULL;
+    }
+    if(request_arg->name==NULL)
+    {
+        free(request_arg);
+        return NULL;
+    }
+    return request_arg;
+}
+
 void accept_request(void *arg)
 {
     int client=(intptr_t)arg;
     char buf[1024];
     char method[255];
+    char path[255];
     char url[255];
+    struct RequestArg * request_arg=NULL;
     int read_size;
 
     read_size=get_line(client,buf, sizeof(buf));
 
+    //Get method
     int index=0;
     while(buf[index]!=' '&&index<read_size)
     {
@@ -89,6 +143,7 @@ void accept_request(void *arg)
     }
     method[index]='\0';
 
+    //Get url
     index++;
     int url_i=0;
     while(buf[index]!=' '&&index<read_size&&url_i<sizeof(url))
@@ -98,12 +153,30 @@ void accept_request(void *arg)
         index++;
     }
     url[url_i]='\0';
-    printf("%s\n",url);
+
+    //Get Path
+    index=0;
+    while(url[index]!='\0'&&url[index]!='?')
+    {
+        path[index]=url[index];
+        index++;
+    }
+    path[index]='\0';
+
+    if(url[index]=='?')
+    {
+        request_arg=get_request_arg(url,index);
+    }
+
     if(!strcmp(method,"GET"))
     {
-        if(!strcmp(url,"/"))
+        if(!strcmp(path,"/")||!strcmp(path,"/index.html"))
         {
             get_index(client);
+        }
+        else
+        {
+            not_found(client);
         }
     }
     if(!strcmp(method,"POST"))
@@ -138,8 +211,6 @@ void get_index(int client)
     while(fgets(buf,1024,fp)!=NULL)
     {
         send(client,buf,strlen(buf),0);
-        sprintf(buf, "\r\n");
-        send(client, buf, strlen(buf),0);
     }
     fclose(fp);
 }
@@ -169,8 +240,6 @@ void not_found(int client)
     while(fgets(buf,1024,fp)!=NULL)
     {
         send(client,buf,strlen(buf),0);
-        sprintf(buf, "\r\n");
-        send(client, buf, strlen(buf),0);
     }
     fclose(fp);
 }
