@@ -7,7 +7,7 @@ int init()
     struct sockaddr_in remote_client;
     unsigned int client_len;
 
-    int server_socket=socket(PF_INET, SOCK_STREAM, 0);
+    int server_socket=socket(AF_INET, SOCK_STREAM, 0);
     if(server_socket==-1)
     {
         printf("Error\n");
@@ -23,6 +23,7 @@ int init()
         printf("Bind Error !\n");
         exit(-1);
     }
+
     //开始监听
     if(listen(server_socket, 5)==-1)
     {
@@ -168,17 +169,20 @@ void accept_request(void *arg)
         request_arg=get_request_arg(url,index);
     }
 
+    //GET请求
     if(!strcmp(method,"GET"))
     {
         if(!strcmp(path,"/")||!strcmp(path,"/index.html"))
         {
-            get_index(client);
+            site_index(client);
         }
         else
         {
-            not_found(client);
+            static_file(client,path);
         }
     }
+
+    //POST请求
     if(!strcmp(method,"POST"))
     {
 
@@ -186,7 +190,7 @@ void accept_request(void *arg)
     close(client);
 }
 
-void get_index(int client)
+void site_index(int client)
 {
     char buf[1024];
     sprintf(buf, "HTTP/1.1 200 OK\r\n");
@@ -242,4 +246,91 @@ void not_found(int client)
         send(client,buf,strlen(buf),0);
     }
     fclose(fp);
+}
+
+void static_file(int client,char *path)
+{
+    char filetype[20];
+    char buf[1024];
+    int index=strlen(path)-1;
+    while(index>0&&path[index]!='.')
+    {
+        index--;
+    }
+    if(index==0)
+    {
+        strcpy(filetype,"text");
+    }
+    else
+    {
+        index++;
+        int i=0;
+        while(path[index]!='\0')
+        {
+            filetype[i]=path[index];
+            index++;
+            i++;
+        }
+        filetype[i]='\0';
+    }
+    if(!strcmp(filetype,"png")||!strcmp(filetype,"jpg")||!strcmp(filetype,"jpeg"))
+    {
+        FILE *fp;
+        char filename[255];
+        sprintf(filename, "www%s",path);
+        if((fp=fopen(filename,"r"))==NULL)
+        {
+            not_found(client);
+            return;
+        }
+        sprintf(buf, "HTTP/1.1 200 OK\r\n");
+        send(client, buf, strlen(buf), 0);
+        sprintf(buf, "Server: NyServer/0.1.0\r\n");
+        send(client, buf, strlen(buf), 0);
+        sprintf(buf,"Accept-Ranges:bytes\r\n");
+        send(client, buf, strlen(buf), 0);
+        sprintf(buf, "Content-Type: image/jpeg\r\n");
+        send(client, buf, strlen(buf), 0);
+        int read_num;
+        while((read_num=fread(buf,1,1024,fp))>0)
+        {
+            send(client,buf,read_num,0);
+        }
+        fclose(fp);
+    }
+    else
+    {
+        FILE *fp;
+        char filename[255];
+        sprintf(filename, "www%s",path);
+        if((fp=fopen(filename,"r"))==NULL)
+        {
+            not_found(client);
+            return;
+        }
+        sprintf(buf, "HTTP/1.1 200 OK\r\n");
+        send(client, buf, strlen(buf), 0);
+        sprintf(buf, "Server: NyServer/0.1.0\r\n");
+        send(client, buf, strlen(buf), 0);
+        if(!strcmp(filetype,"js"))
+        {
+            sprintf(buf, "Content-Type: application/javascript\r\n");
+            send(client, buf, strlen(buf), 0);
+        }
+        else if(!strcmp(filetype,"css"))
+        {
+            sprintf(buf, "Content-Type: text/css\r\n");
+            send(client, buf, strlen(buf), 0);
+        }
+        else
+        {
+            sprintf(buf, "Content-Type: text/html\r\n");
+            send(client, buf, strlen(buf), 0);
+        }
+        while(fgets(buf,1024,fp)!=NULL)
+        {
+            send(client,buf,strlen(buf),0);
+        }
+        fclose(fp);
+    }
 }

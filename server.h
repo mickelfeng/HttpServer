@@ -24,7 +24,8 @@ int init();
 void accept_request(void *arg);
 int get_line(int client_sock,char *buf,int size);
 void not_found(int client_sock);
-void get_index(int client_sock);
+void site_index(int client_sock);
 struct RequestArg *get_request_arg(char *url,int index);
+void static_file(int client_sock,char *path);
 
 #endif
