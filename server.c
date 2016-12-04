@@ -287,9 +287,9 @@ void static_file(int client,char *path)
         send(client, buf, strlen(buf), 0);
         sprintf(buf, "Server: NyServer/0.1.0\r\n");
         send(client, buf, strlen(buf), 0);
-        sprintf(buf,"Accept-Ranges:bytes\r\n");
-        send(client, buf, strlen(buf), 0);
         sprintf(buf, "Content-Type: image/jpeg\r\n");
+        send(client, buf, strlen(buf), 0);
+        sprintf(buf, "\r\n");
         send(client, buf, strlen(buf), 0);
         int read_num;
         while((read_num=fread(buf,1,1024,fp))>0)
@@ -327,6 +327,8 @@ void static_file(int client,char *path)
             sprintf(buf, "Content-Type: text/html\r\n");
             send(client, buf, strlen(buf), 0);
         }
+        sprintf(buf, "\r\n");
+        send(client, buf, strlen(buf), 0);
         while(fgets(buf,1024,fp)!=NULL)
         {
             send(client,buf,strlen(buf),0);
