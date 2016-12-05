@@ -6,6 +6,7 @@ int init()
     struct sockaddr_in name;
     struct sockaddr_in remote_client;
     unsigned int client_len;
+    int opt=1;
 
     int server_socket=socket(AF_INET, SOCK_STREAM, 0);
     if(server_socket==-1)
@@ -13,6 +14,8 @@ int init()
         printf("Error\n");
         exit(-1);
     }
+    setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
+
 
     //绑定IP和端口
     name.sin_family = AF_INET;
@@ -41,6 +44,14 @@ int init()
         }
     }
     return 0;
+}
+
+void free_memory(struct RequestArg *request_arg)
+{
+    if(request_arg==NULL)
+        return;
+    free_memory(request_arg->next);
+    free(request_arg);
 }
 
 int get_line(int client_sock,char *buf,int size)
@@ -172,13 +183,18 @@ void accept_request(void *arg)
     //GET请求
     if(!strcmp(method,"GET"))
     {
-        if(!strcmp(path,"/")||!strcmp(path,"/index.html"))
+        char *filetype=get_filetype(path);
+        if(!strcmp(path,"/"))
         {
             site_index(client);
         }
+        else if(!strcmp(filetype,""))
+        {
+            not_found(client);
+        }
         else
         {
-            static_file(client,path);
+            static_file(client,path,filetype);
         }
     }
 
@@ -187,6 +203,7 @@ void accept_request(void *arg)
     {
 
     }
+    free_memory(request_arg);
     close(client);
 }
 
@@ -248,10 +265,9 @@ void not_found(int client)
     fclose(fp);
 }
 
-void static_file(int client,char *path)
+char * get_filetype(char *path)
 {
-    char filetype[20];
-    char buf[1024];
+    char *filetype=(char *)malloc(sizeof(char)*20);
     int index=strlen(path)-1;
     while(index>0&&path[index]!='.')
     {
@@ -259,7 +275,7 @@ void static_file(int client,char *path)
     }
     if(index==0)
     {
-        strcpy(filetype,"text");
+        strcpy(filetype,"");
     }
     else
     {
@@ -273,8 +289,15 @@ void static_file(int client,char *path)
         }
         filetype[i]='\0';
     }
+    return filetype;
+}
+
+void static_file(int client,char *path,char *filetype)
+{
+    char buf[1024];
     if(!strcmp(filetype,"png")||!strcmp(filetype,"jpg")||!strcmp(filetype,"jpeg"))
     {
+        free(filetype);
         FILE *fp;
         char filename[255];
         sprintf(filename, "www%s",path);
@@ -306,6 +329,7 @@ void static_file(int client,char *path)
         if((fp=fopen(filename,"r"))==NULL)
         {
             not_found(client);
+            free(filetype);
             return;
         }
         sprintf(buf, "HTTP/1.1 200 OK\r\n");
@@ -334,5 +358,6 @@ void static_file(int client,char *path)
             send(client,buf,strlen(buf),0);
         }
         fclose(fp);
+        free(filetype);
     }
 }
