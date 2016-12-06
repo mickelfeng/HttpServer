@@ -16,7 +16,6 @@ int init()
     }
     setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
 
-
     //绑定IP和端口
     name.sin_family = AF_INET;
     name.sin_port = htons(SERVER_PORT);
@@ -124,6 +123,7 @@ void accept_request(void *arg)
         {
             struct KeyValue *post_arg=get_post_arg(client,length);
             print_key_value(post_arg);
+            free_memory(post_arg);
             site_index(client);
         }
         else
@@ -131,7 +131,7 @@ void accept_request(void *arg)
             not_found(client);
         }
     }
-
+    free_memory(headers);
     free_memory(request_arg);
     close(client);
 }
@@ -167,8 +167,8 @@ struct KeyValue* get_post_arg(int client,int length)
         }
     }
     post_string[index]='\0';
-    printf("post string %s\n",post_string);
     post_arg=get_request_arg(post_string,0);
+    free(post_string);
     return post_arg;
 }
 
@@ -189,6 +189,7 @@ struct KeyValue* get_headers(int client_sock)
     struct KeyValue *header=(struct KeyValue*)malloc(sizeof(struct KeyValue));
     header->name=NULL;
     header->next=NULL;
+    header->value=NULL;
     struct KeyValue *tail=header;
     while((read_size=get_line(client_sock,line,sizeof(line)))>0)
     {
@@ -220,6 +221,7 @@ struct KeyValue* get_headers(int client_sock)
         tail->next=(struct KeyValue*)malloc(sizeof(struct KeyValue));
         tail=tail->next;
         tail->name=NULL;
+        tail->value=NULL;
         tail->next=NULL;
     }
     if(header->name==NULL)
@@ -235,8 +237,10 @@ void free_memory(struct KeyValue *p)
     if(p==NULL)
         return;
     free_memory(p->next);
-    free(p->name);
-    free(p->value);
+    if(p->name!=NULL)
+        free(p->name);
+    if(p->value!=NULL)
+        free(p->value);
     free(p);
 }
 
@@ -278,33 +282,33 @@ struct KeyValue *get_request_arg(char *string,int index)
     struct KeyValue *tail=request_arg;
     tail->next=NULL;
     tail->name=NULL;
-
+    tail->value=NULL;
     int length=strlen(string);
 
-    while(1)
+    while(index<length)
     {
         char name[255];
         char value[255];
         int i=0;
-        while(index<length&&string[index]!='='&&string[index]!='\0')
+        while(index<length&&string[index]!='=')
         {
             name[i]=string[index];
             i++;
             index++;
         }
         name[i]='\0';
-        if(index<length&&string[index]=='\0')
+        if(index>=length)
             break;
-            
         i=0;
         index++;
-        while(index<length&&string[index]!='\0'&&string[index]!='&')
+        while(index<length&&string[index]!='&')
         {
             value[i]=string[index];
             index++;
             i++;
         }
         value[i]='\0';
+
         if(strcmp(value,"")==0)
             continue;
         tail->name=(char *)malloc(sizeof(char)*strlen(name));
@@ -315,11 +319,9 @@ struct KeyValue *get_request_arg(char *string,int index)
 
         tail->next=(struct KeyValue*)malloc(sizeof(struct KeyValue));
         tail=tail->next;
+        tail->value=NULL;
         tail->next=NULL;
         tail->name=NULL;
-
-        if(index<length&&string[index]=='\0')
-            break;
         index++;
     }
     if(request_arg->name==NULL)
