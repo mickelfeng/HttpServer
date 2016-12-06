@@ -46,93 +46,6 @@ int init()
     return 0;
 }
 
-void free_memory(struct RequestArg *request_arg)
-{
-    if(request_arg==NULL)
-        return;
-    free_memory(request_arg->next);
-    free(request_arg);
-}
-
-int get_line(int client_sock,char *buf,int size)
-{
-    char c='0';
-    int read_size=0;
-    while(read_size<size-1&&c!='\n')
-    {
-        int num=recv(client_sock,&c,1,0);
-        if(num>0)
-        {
-            if(c=='\r')
-            {
-                num=recv(client_sock,&c,1,MSG_PEEK);
-                if(num>0&&c=='\n')
-                    recv(client_sock,&c,1,0);
-                else
-                    c='\n';
-            }
-            buf[read_size]=c;
-            read_size++;
-        }
-        else
-        {
-            c='\n';
-        }
-    }
-    buf[read_size] = '\0';
-    return read_size;
-}
-
-struct RequestArg *get_request_arg(char *url,int index)
-{
-    struct RequestArg * request_arg=(struct RequestArg*)malloc(sizeof(struct RequestArg));
-    struct RequestArg *tail=request_arg;
-    tail->next=NULL;
-    tail->name=NULL;
-
-    while(url[index]!='\0')
-    {
-        index++;
-        char name[255];
-        char value[255];
-        int i=0;
-        while(url[index]!='='&&url[index]!='\0')
-        {
-            name[i]=url[index];
-            i++;
-            index++;
-        }
-        name[i]='\0';
-
-        i=0;
-        index++;
-        while(url[index]!='\0'&&url[index]!='&')
-        {
-            value[i]=url[index];
-            index++;
-            i++;
-        }
-        value[i]='\0';
-        if(strcmp(value,"")==0)
-            continue;
-        tail->name=(char *)malloc(sizeof(char)*strlen(name));
-        strcpy(tail->name,name);
-
-        tail->value=(char *)malloc(sizeof(char)*strlen(value));
-        strcpy(tail->value,value);
-
-        tail->next=(struct RequestArg*)malloc(sizeof(struct RequestArg));
-        tail=tail->next;
-        tail->next=NULL;
-        tail->name=NULL;
-    }
-    if(request_arg->name==NULL)
-    {
-        free(request_arg);
-        return NULL;
-    }
-    return request_arg;
-}
 
 void accept_request(void *arg)
 {
@@ -141,7 +54,8 @@ void accept_request(void *arg)
     char method[255];
     char path[255];
     char url[255];
-    struct RequestArg * request_arg=NULL;
+    struct KeyValue * request_arg=NULL;
+    struct KeyValue * headers=NULL;
     int read_size;
 
     read_size=get_line(client,buf, sizeof(buf));
@@ -177,9 +91,11 @@ void accept_request(void *arg)
 
     if(url[index]=='?')
     {
-        request_arg=get_request_arg(url,index);
+        request_arg=get_request_arg(url,index+1);
     }
-
+    headers=get_headers(client);
+    print_key_value(headers);
+    print_key_value(request_arg);
     //GET请求
     if(!strcmp(method,"GET"))
     {
@@ -201,10 +117,217 @@ void accept_request(void *arg)
     //POST请求
     if(!strcmp(method,"POST"))
     {
-
+        char *content_length=get_value(headers,"Content-Length");
+        int length=atoi(content_length);
+        char *content_type=get_value(headers,"Content-Type");
+        if(!strcmp(content_type,"application/x-www-form-urlencoded"))
+        {
+            struct KeyValue *post_arg=get_post_arg(client,length);
+            print_key_value(post_arg);
+            site_index(client);
+        }
+        else
+        {
+            not_found(client);
+        }
     }
+
     free_memory(request_arg);
     close(client);
+}
+
+void print_key_value(struct KeyValue *head)
+{
+    struct KeyValue *p=head;
+    while(p!=NULL)
+    {
+        if(p->name!=NULL)
+        {
+            printf("%s  %s\n",p->name,p->value);
+        }
+        p=p->next;
+    }
+}
+struct KeyValue* get_post_arg(int client,int length)
+{
+    char *post_string=(char *)malloc(sizeof(char)*(length+2));
+    struct KeyValue *post_arg=NULL;
+    char c;
+    int index;
+    for(index=0;index<length;++index)
+    {
+        int num=recv(client,&c,1,0);
+        if(num>0)
+        {
+            post_string[index]=c;
+        }
+        else
+        {
+            break;
+        }
+    }
+    post_string[index]='\0';
+    printf("post string %s\n",post_string);
+    post_arg=get_request_arg(post_string,0);
+    return post_arg;
+}
+
+char * get_value(struct KeyValue *p,char *key)
+{
+    while(p->name!=NULL)
+    {
+        if(!strcmp(p->name,key))
+            return p->value;
+        p=p->next;
+    }
+    return NULL;
+}
+struct KeyValue* get_headers(int client_sock)
+{
+    char line[255];
+    int read_size=0;
+    struct KeyValue *header=(struct KeyValue*)malloc(sizeof(struct KeyValue));
+    header->name=NULL;
+    header->next=NULL;
+    struct KeyValue *tail=header;
+    while((read_size=get_line(client_sock,line,sizeof(line)))>0)
+    {
+        char name[80];
+        char value[255];
+        int index=0;
+        while(line[index]!=':')
+        {
+            name[index]=line[index];
+            index++;
+        }
+        name[index]='\0';
+        index+=2;
+
+        int i=0;
+        while(line[index]!='\0')
+        {
+            value[i]=line[index];
+            i++;
+            index++;
+        }
+        value[i]='\0';
+
+        tail->name=(char *)malloc(sizeof(char)*strlen(name));
+        strcpy(tail->name,name);
+        tail->value=(char *)malloc(sizeof(char)*strlen(value));
+        strcpy(tail->value,value);
+
+        tail->next=(struct KeyValue*)malloc(sizeof(struct KeyValue));
+        tail=tail->next;
+        tail->name=NULL;
+        tail->next=NULL;
+    }
+    if(header->name==NULL)
+    {
+        free_memory(header);
+        return NULL;
+    }
+    return header;
+}
+
+void free_memory(struct KeyValue *p)
+{
+    if(p==NULL)
+        return;
+    free_memory(p->next);
+    free(p->name);
+    free(p->value);
+    free(p);
+}
+
+int get_line(int client_sock,char *buf,int size)
+{
+    char c='\0';
+    int read_size=0;
+    while(read_size<size-1&&c!='\n')
+    {
+        int num=recv(client_sock,&c,1,0);
+        if(num>0)
+        {
+            if(c=='\r')
+            {
+                num=recv(client_sock,&c,1,MSG_PEEK);
+                if(num>0&&c=='\n')
+                    recv(client_sock,&c,1,0);
+                else
+                    c='\n';
+            }
+            if(c!='\n')
+            {
+                buf[read_size]=c;
+                read_size++;
+            }
+        }
+        else
+        {
+            c='\n';
+        }
+    }
+    buf[read_size]='\0';
+    return read_size;
+}
+
+struct KeyValue *get_request_arg(char *string,int index)
+{
+    struct KeyValue * request_arg=(struct KeyValue*)malloc(sizeof(struct KeyValue));
+    struct KeyValue *tail=request_arg;
+    tail->next=NULL;
+    tail->name=NULL;
+
+    int length=strlen(string);
+
+    while(1)
+    {
+        char name[255];
+        char value[255];
+        int i=0;
+        while(index<length&&string[index]!='='&&string[index]!='\0')
+        {
+            name[i]=string[index];
+            i++;
+            index++;
+        }
+        name[i]='\0';
+        if(index<length&&string[index]=='\0')
+            break;
+            
+        i=0;
+        index++;
+        while(index<length&&string[index]!='\0'&&string[index]!='&')
+        {
+            value[i]=string[index];
+            index++;
+            i++;
+        }
+        value[i]='\0';
+        if(strcmp(value,"")==0)
+            continue;
+        tail->name=(char *)malloc(sizeof(char)*strlen(name));
+        strcpy(tail->name,name);
+
+        tail->value=(char *)malloc(sizeof(char)*strlen(value));
+        strcpy(tail->value,value);
+
+        tail->next=(struct KeyValue*)malloc(sizeof(struct KeyValue));
+        tail=tail->next;
+        tail->next=NULL;
+        tail->name=NULL;
+
+        if(index<length&&string[index]=='\0')
+            break;
+        index++;
+    }
+    if(request_arg->name==NULL)
+    {
+        free_memory(request_arg);
+        return NULL;
+    }
+    return request_arg;
 }
 
 void site_index(int client)

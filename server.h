@@ -13,22 +13,26 @@
 
 #define SERVER_PORT 8000
 
-struct RequestArg
+struct KeyValue
 {
     char *name;
     char *value;
-    struct RequestArg *next;
+    struct KeyValue *next;
 };
 
 int init();
 void accept_request(void *arg);
 int get_line(int client_sock,char *buf,int size);
+struct KeyValue* get_headers(int client_sock);
 void not_found(int client_sock);
 void site_index(int client_sock);
-struct RequestArg *get_request_arg(char *url,int index);
+struct KeyValue* get_request_arg(char *url,int index);
 void static_file(int client_sock,char *path,char *filetype);
 char *get_filetype(char *path);
-void free_memory(struct RequestArg *request_arg);
+void free_memory(struct KeyValue *request_arg);
+struct KeyValue* get_headers(int client_sock);
+char * get_value(struct KeyValue *p,char *key);
+struct KeyValue* get_post_arg(int client,int length);
 
-
+void print_key_value(struct KeyValue *p);
 #endif
