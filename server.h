@@ -10,7 +10,7 @@
 #include<netinet/in.h>
 #include<stdlib.h>
 #include<string.h>
-
+#include<unistd.h>
 #define SERVER_PORT 8000
 
 struct KeyValue
