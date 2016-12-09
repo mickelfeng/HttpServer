@@ -11,6 +11,8 @@
 #include<stdlib.h>
 #include<string.h>
 #include<unistd.h>
+#include<time.h>
+
 #define SERVER_PORT 8000
 
 struct KeyValue
@@ -33,6 +35,9 @@ void free_memory(struct KeyValue *request_arg);
 struct KeyValue* get_headers(int client_sock);
 char * get_value(struct KeyValue *p,char *key);
 struct KeyValue* get_post_arg(int client,int length);
+void response_headers(int client,int type);
+//type 1-html 2-jpeg 3-js 4-css
+void response_file(int client,char *filepath,int type);
 
 void print_key_value(struct KeyValue *p);
 #endif

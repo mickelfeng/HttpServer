@@ -93,8 +93,8 @@ void accept_request(void *arg)
         request_arg=get_request_arg(url,index+1);
     }
     headers=get_headers(client);
-    print_key_value(headers);
-    print_key_value(request_arg);
+    //print_key_value(headers);
+    //print_key_value(request_arg);
     //GET请求
     if(!strcmp(method,"GET"))
     {
@@ -148,6 +148,65 @@ void print_key_value(struct KeyValue *head)
         p=p->next;
     }
 }
+
+void response_headers(int client,int type)
+{
+    char buf[255];
+    time_t timep;
+    struct tm *p;
+    time(&timep);
+    p=localtime(&timep);
+
+    sprintf(buf, "HTTP/1.1 200 OK\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "Server: NyServer/0.1.0\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "Date: %04d-%02d-%02d %02d:%02d:%02d\r\n",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
+    send(client, buf, strlen(buf), 0);
+
+    switch (type)
+    {
+        case 1:
+            sprintf(buf, "Content-Type: text/html;charset=utf-8\r\n");
+            send(client, buf, strlen(buf), 0);
+            break;
+        case 2:
+            sprintf(buf, "Content-Type: image/jpeg\r\n");
+            send(client, buf, strlen(buf), 0);
+            break;
+        case 3:
+            sprintf(buf, "Content-Type: application/javascript\r\n");
+            send(client, buf, strlen(buf), 0);
+            break;
+        case 4:
+            sprintf(buf, "Content-Type: text/css\r\n");
+            send(client, buf, strlen(buf), 0);
+            break;
+    }
+    sprintf(buf, "\r\n");
+    send(client, buf, strlen(buf), 0);
+}
+
+void response_file(int client,char *filepath,int type)
+{
+    FILE *fp;
+    char filename[255];
+    sprintf(filename, "www%s",filepath);
+    if((fp=fopen(filename,"r"))==NULL)
+    {
+        not_found(client);
+        return;
+    }
+    response_headers(client,type);
+    int read_num;
+    char buf[1024];
+    while((read_num=fread(buf,1,1024,fp))>0)
+    {
+        send(client,buf,read_num,0);
+    }
+    fclose(fp);
+}
+
 struct KeyValue* get_post_arg(int client,int length)
 {
     char *post_string=(char *)malloc(sizeof(char)*(length+2));
@@ -335,14 +394,7 @@ struct KeyValue *get_request_arg(char *string,int index)
 void site_index(int client)
 {
     char buf[1024];
-    sprintf(buf, "HTTP/1.1 200 OK\r\n");
-    send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Server: NyServer/0.1.0\r\n");
-    send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Content-Type: text/html;charset=utf-8\r\n");
-    send(client, buf, strlen(buf), 0);
-    sprintf(buf, "\r\n");
-    send(client, buf, strlen(buf), 0);
+    response_headers(client,1);
     FILE *fp;
     if((fp=fopen("www/index.html","r"))==NULL)
     {
@@ -364,14 +416,7 @@ void site_index(int client)
 void not_found(int client)
 {
     char buf[1024];
-    sprintf(buf, "HTTP/1.1 404 NOT FOUND\r\n");
-    send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Server: NyServer/0.1.0\r\n");
-    send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Content-Type: text/html;charset=utf-8\r\n");
-    send(client, buf, strlen(buf), 0);
-    sprintf(buf, "\r\n");
-    send(client, buf, strlen(buf), 0);
+    response_headers(client,1);
     FILE *fp;
     if((fp=fopen("www/404.html","r"))==NULL)
     {
@@ -419,70 +464,20 @@ char * get_filetype(char *path)
 
 void static_file(int client,char *path,char *filetype)
 {
-    char buf[1024];
-    if(!strcmp(filetype,"png")||!strcmp(filetype,"jpg")||!strcmp(filetype,"jpeg"))
+    if(!strcmp(filetype,"png")||!strcmp(filetype,"jpg")||!strcmp(filetype,"jpeg")||!strcmp(filetype,"ico"))
     {
-        free(filetype);
-        FILE *fp;
-        char filename[255];
-        sprintf(filename, "www%s",path);
-        if((fp=fopen(filename,"r"))==NULL)
-        {
-            not_found(client);
-            return;
-        }
-        sprintf(buf, "HTTP/1.1 200 OK\r\n");
-        send(client, buf, strlen(buf), 0);
-        sprintf(buf, "Server: NyServer/0.1.0\r\n");
-        send(client, buf, strlen(buf), 0);
-        sprintf(buf, "Content-Type: image/jpeg\r\n");
-        send(client, buf, strlen(buf), 0);
-        sprintf(buf, "\r\n");
-        send(client, buf, strlen(buf), 0);
-        int read_num;
-        while((read_num=fread(buf,1,1024,fp))>0)
-        {
-            send(client,buf,read_num,0);
-        }
-        fclose(fp);
+        response_file(client,path,2);
+    }
+    else if(!strcmp(filetype,"js"))
+    {
+        response_file(client,path,3);
+    }
+    else if(!strcmp(filetype,"css"))
+    {
+        response_file(client,path,4);
     }
     else
     {
-        FILE *fp;
-        char filename[255];
-        sprintf(filename, "www%s",path);
-        if((fp=fopen(filename,"r"))==NULL)
-        {
-            not_found(client);
-            free(filetype);
-            return;
-        }
-        sprintf(buf, "HTTP/1.1 200 OK\r\n");
-        send(client, buf, strlen(buf), 0);
-        sprintf(buf, "Server: NyServer/0.1.0\r\n");
-        send(client, buf, strlen(buf), 0);
-        if(!strcmp(filetype,"js"))
-        {
-            sprintf(buf, "Content-Type: application/javascript\r\n");
-            send(client, buf, strlen(buf), 0);
-        }
-        else if(!strcmp(filetype,"css"))
-        {
-            sprintf(buf, "Content-Type: text/css\r\n");
-            send(client, buf, strlen(buf), 0);
-        }
-        else
-        {
-            sprintf(buf, "Content-Type: text/html\r\n");
-            send(client, buf, strlen(buf), 0);
-        }
-        sprintf(buf, "\r\n");
-        send(client, buf, strlen(buf), 0);
-        while(fgets(buf,1024,fp)!=NULL)
-        {
-            send(client,buf,strlen(buf),0);
-        }
-        fclose(fp);
-        free(filetype);
+        response_file(client,path,1);
     }
 }
