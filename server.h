@@ -12,6 +12,8 @@
 #include<string.h>
 #include<unistd.h>
 #include<time.h>
+#include<stdarg.h>
+
 
 #define SERVER_PORT 8000
 
@@ -24,20 +26,23 @@ struct KeyValue
 
 int init();
 void accept_request(void *arg);
-int get_line(int client_sock,char *buf,int size);
-struct KeyValue* get_headers(int client_sock);
-void not_found(int client_sock);
-void site_index(int client_sock);
+int get_line(int client,char *buf,int size);
+struct KeyValue* get_headers(int client);
+void not_found(int client);
+void site_index(int client);
 struct KeyValue* get_request_arg(char *url,int index);
-void static_file(int client_sock,char *path,char *filetype);
+void static_file(int client,char *path,char *filetype);
 char *get_filetype(char *path);
 void free_memory(struct KeyValue *request_arg);
-struct KeyValue* get_headers(int client_sock);
+struct KeyValue* get_headers(int client);
 char * get_value(struct KeyValue *p,char *key);
 struct KeyValue* get_post_arg(int client,int length);
-void response_headers(int client,int type);
+void response_headers(int client,int type,struct KeyValue *header);
 //type 1-html 2-jpeg 3-js 4-css
-void response_file(int client,char *filepath,int type);
+void response_file(int client,char *filepath,int type,struct KeyValue *header);
+void login(int client,struct KeyValue *post_arg);
+
+char *set_cookie();
 
 void print_key_value(struct KeyValue *p);
 #endif

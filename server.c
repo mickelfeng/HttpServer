@@ -1,6 +1,5 @@
 #include "server.h"
 
-
 int init()
 {
     struct sockaddr_in name;
@@ -38,8 +37,8 @@ int init()
         int client_sock=accept(server_socket,(struct sockaddr *)&remote_client,&client_len);
         if(client_sock!=-1)
         {
-            pthread_t client;
-            pthread_create(&client,NULL,(void *)accept_request,(void *)(intptr_t)client_sock);
+            pthread_t client_pid;
+            pthread_create(&client_pid,NULL,(void *)accept_request,(void *)(intptr_t)client_sock);
         }
     }
     return 0;
@@ -93,8 +92,7 @@ void accept_request(void *arg)
         request_arg=get_request_arg(url,index+1);
     }
     headers=get_headers(client);
-    //print_key_value(headers);
-    //print_key_value(request_arg);
+
     //GET请求
     if(!strcmp(method,"GET"))
     {
@@ -122,13 +120,14 @@ void accept_request(void *arg)
         if(!strcmp(content_type,"application/x-www-form-urlencoded"))
         {
             struct KeyValue *post_arg=get_post_arg(client,length);
-            print_key_value(post_arg);
-            free_memory(post_arg);
-            site_index(client);
-        }
-        else
-        {
-            not_found(client);
+            if(!strcmp(path,"/login"))
+            {
+                login(client,post_arg);
+            }
+            else
+            {
+                not_found(client);
+            }
         }
     }
     free_memory(headers);
@@ -149,7 +148,7 @@ void print_key_value(struct KeyValue *head)
     }
 }
 
-void response_headers(int client,int type)
+void response_headers(int client,int type,struct KeyValue *header)
 {
     char buf[255];
     time_t timep;
@@ -163,7 +162,16 @@ void response_headers(int client,int type)
     send(client, buf, strlen(buf), 0);
     sprintf(buf, "Date: %04d-%02d-%02d %02d:%02d:%02d\r\n",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
     send(client, buf, strlen(buf), 0);
-
+    if(header!=NULL)
+    {
+        struct KeyValue *p=header;
+        while (p!=NULL)
+        {
+            sprintf(buf,"%s: %s\r\n",p->name,p->value);
+            send(client, buf, strlen(buf), 0);
+            p=p->next;
+        }
+    }
     switch (type)
     {
         case 1:
@@ -187,7 +195,7 @@ void response_headers(int client,int type)
     send(client, buf, strlen(buf), 0);
 }
 
-void response_file(int client,char *filepath,int type)
+void response_file(int client,char *filepath,int type,struct KeyValue *header)
 {
     FILE *fp;
     char filename[255];
@@ -197,7 +205,7 @@ void response_file(int client,char *filepath,int type)
         not_found(client);
         return;
     }
-    response_headers(client,type);
+    response_headers(client,type,header);
     int read_num;
     char buf[1024];
     while((read_num=fread(buf,1,1024,fp))>0)
@@ -241,7 +249,8 @@ char * get_value(struct KeyValue *p,char *key)
     }
     return NULL;
 }
-struct KeyValue* get_headers(int client_sock)
+
+struct KeyValue* get_headers(int client)
 {
     char line[255];
     int read_size=0;
@@ -250,7 +259,7 @@ struct KeyValue* get_headers(int client_sock)
     header->next=NULL;
     header->value=NULL;
     struct KeyValue *tail=header;
-    while((read_size=get_line(client_sock,line,sizeof(line)))>0)
+    while((read_size=get_line(client,line,sizeof(line)))>0)
     {
         char name[80];
         char value[255];
@@ -303,20 +312,20 @@ void free_memory(struct KeyValue *p)
     free(p);
 }
 
-int get_line(int client_sock,char *buf,int size)
+int get_line(int client,char *buf,int size)
 {
     char c='\0';
     int read_size=0;
     while(read_size<size-1&&c!='\n')
     {
-        int num=recv(client_sock,&c,1,0);
+        int num=recv(client,&c,1,0);
         if(num>0)
         {
             if(c=='\r')
             {
-                num=recv(client_sock,&c,1,MSG_PEEK);
+                num=recv(client,&c,1,MSG_PEEK);
                 if(num>0&&c=='\n')
-                    recv(client_sock,&c,1,0);
+                    recv(client,&c,1,0);
                 else
                     c='\n';
             }
@@ -394,7 +403,7 @@ struct KeyValue *get_request_arg(char *string,int index)
 void site_index(int client)
 {
     char buf[1024];
-    response_headers(client,1);
+    response_headers(client,1,NULL);
     FILE *fp;
     if((fp=fopen("www/index.html","r"))==NULL)
     {
@@ -416,7 +425,7 @@ void site_index(int client)
 void not_found(int client)
 {
     char buf[1024];
-    response_headers(client,1);
+    response_headers(client,1,NULL);
     FILE *fp;
     if((fp=fopen("www/404.html","r"))==NULL)
     {
@@ -466,18 +475,58 @@ void static_file(int client,char *path,char *filetype)
 {
     if(!strcmp(filetype,"png")||!strcmp(filetype,"jpg")||!strcmp(filetype,"jpeg")||!strcmp(filetype,"ico"))
     {
-        response_file(client,path,2);
+        response_file(client,path,2,NULL);
     }
     else if(!strcmp(filetype,"js"))
     {
-        response_file(client,path,3);
+        response_file(client,path,3,NULL);
     }
     else if(!strcmp(filetype,"css"))
     {
-        response_file(client,path,4);
+        response_file(client,path,4,NULL);
     }
     else
     {
-        response_file(client,path,1);
+        response_file(client,path,1,NULL);
     }
+}
+
+void login(int client,struct KeyValue *post_arg)
+{
+    char *username=get_value(post_arg,"username");
+    char *password=get_value(post_arg,"password");
+    if(username==NULL||password==NULL)
+    {
+        site_index(client);
+        return;
+    }
+    if(!strcmp(username,"nyserver")&&!strcmp(password,"nyserver"))
+    {
+        struct KeyValue *p=(struct KeyValue*)malloc(sizeof(struct KeyValue));
+        p->name=(char *)malloc(sizeof(char)*strlen("Set-Cookie")+1);
+        strcpy(p->name,"Set-Cookie");
+        char *cookie=set_cookie();
+        p->value=cookie;
+        p->next=NULL;
+
+        response_file(client,"/user.html",1,p);
+        free_memory(p);
+    }
+    else
+    {
+        response_file(client,"/login.html",1,NULL);
+    }
+}
+
+char *set_cookie()
+{
+    char *cookie=(char *)malloc(sizeof(char)*255);
+
+    time_t timep;
+    struct tm *p;
+    time(&timep);
+    p=localtime(&timep);
+
+    sprintf(cookie, "username=nyserver; sessionid=123456; date=%04d-%02d-%02d %02d:%02d:%02d",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
+    return cookie;
 }
