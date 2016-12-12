@@ -1,6 +1,9 @@
-#ifndef _SERVER_H
+//
+// Created by Nyloner on 2016/12/12.
+//
 
-#define _SERVER_H
+#ifndef HTTPSERVER_SERVER_H
+#define HTTPSERVER_SERVER_H
 
 #include<stdio.h>
 #include<sys/types.h>
@@ -11,9 +14,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<unistd.h>
-#include<time.h>
 #include<stdarg.h>
-
 
 #define SERVER_PORT 8000
 
@@ -24,25 +25,26 @@ struct KeyValue
     struct KeyValue *next;
 };
 
-int init();
-void accept_request(void *arg);
+struct Request
+{
+    int client;
+    char method[5];
+    char path[80];
+    struct KeyValue *post_arg;
+    struct KeyValue *request_arg;
+    struct KeyValue *headers;
+};
+
+void init_server();
+void load_request(void *arg);
 int get_line(int client,char *buf,int size);
 struct KeyValue* get_headers(int client);
-void not_found(int client);
-void site_index(int client);
 struct KeyValue* get_request_arg(char *url,int index);
-void static_file(int client,char *path,char *filetype);
-char *get_filetype(char *path);
-void free_memory(struct KeyValue *request_arg);
 struct KeyValue* get_headers(int client);
 char * get_value(struct KeyValue *p,char *key);
 struct KeyValue* get_post_arg(int client,int length);
-void response_headers(int client,int type,struct KeyValue *header);
-//type 1-html 2-jpeg 3-js 4-css
-void response_file(int client,char *filepath,int type,struct KeyValue *header);
-void login(int client,struct KeyValue *post_arg);
 
-char *set_cookie();
+void accept_request(struct Request *request);
+void free_memory(struct KeyValue *p);
 
-void print_key_value(struct KeyValue *p);
-#endif
+#endif //HTTPSERVER_SERVER_H

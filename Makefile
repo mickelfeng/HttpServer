@@ -1,2 +1,2 @@
-result:main.c server.c
-	gcc main.c server.c -o server
+result:src/main.c src/server.c src/views.c
+	gcc src/main.c src/server.c src/views.c -o server
