@@ -36,20 +36,37 @@ void init_server()
         exit(-1);
     }
 
+    log_f=fopen("log.output","a");
+    signal(SIGINT,stop_server);
+
     while(1)
     {
         int client_sock=accept(server_socket,(struct sockaddr *)&remote_client,&client_len);
+        struct SocketArg *arg=(struct SocketArg*)malloc(sizeof(struct SocketArg));
+        arg->client_sock=client_sock;
+        arg->ip_address=inet_ntoa(remote_client.sin_addr);
+
         if(client_sock!=-1)
         {
             pthread_t client_pid;
-            pthread_create(&client_pid,NULL,(void *)load_request,(void *)(intptr_t)client_sock);
+            pthread_create(&client_pid,NULL,(void *)load_request,(void *)arg);
         }
     }
 }
 
+void stop_server()
+{
+    char *loc_time=local_time();
+    printf("\n%s Stop!\n",loc_time);
+    free(loc_time);
+    fclose(log_f);
+    exit(0);
+}
+
 void load_request(void *arg)
 {
-    int client=(intptr_t)arg;
+    struct SocketArg *socket_arg=(struct SocketArg *)arg;
+    int client=socket_arg->client_sock;
     char buf[1024];
     char url[255];
     int read_size;
@@ -59,6 +76,13 @@ void load_request(void *arg)
     request->client=client;
 
     read_size=get_line(client,buf, sizeof(buf));
+
+    char *loc_time=local_time();
+    char log_string[255];
+    sprintf(log_string,"%s\t%s\t%s\n",loc_time,socket_arg->ip_address,buf);
+    printf("%s",log_string);
+    server_log(log_string);
+    free(socket_arg);
 
     //Get method
     int index=0;
@@ -144,7 +168,7 @@ char * get_value(struct KeyValue *p,char *key)
     return NULL;
 }
 
-struct KeyValue* get_headers(int client)
+struct KeyValue * get_headers(int client)
 {
     char line[255];
     int read_size=0;
@@ -226,7 +250,7 @@ int get_line(int client,char *buf,int size)
     return read_size;
 }
 
-struct KeyValue *get_request_arg(char *string,int index)
+struct KeyValue * get_request_arg(char *string,int index)
 {
     struct KeyValue * request_arg=(struct KeyValue*)malloc(sizeof(struct KeyValue));
     struct KeyValue *tail=request_arg;
@@ -292,4 +316,21 @@ void free_memory(struct KeyValue *p)
     if(p->value!=NULL)
         free(p->value);
     free(p);
+}
+
+void server_log(char *string)
+{
+    fprintf(log_f, "%s",string);
+}
+
+char * local_time()
+{
+    time_t timep;
+    struct tm *p;
+    time(&timep);
+    p=localtime(&timep);
+
+    char *loc_time=(char *)malloc(sizeof(char)*20);
+    sprintf(loc_time, "%04d-%02d-%02d %02d:%02d:%02d",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
+    return loc_time;
 }

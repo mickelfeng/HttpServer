@@ -46,16 +46,14 @@ void accept_request(struct Request *request)
 void response_headers(int client,int type,struct KeyValue *header)
 {
     char buf[255];
-    time_t timep;
-    struct tm *p;
-    time(&timep);
-    p=localtime(&timep);
+    char *loc_time=local_time();
 
     sprintf(buf, "HTTP/1.1 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
     sprintf(buf, "Server: NyServer/0.1.0\r\n");
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Date: %04d-%02d-%02d %02d:%02d:%02d\r\n",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
+    sprintf(buf, "Date: %s\r\n",loc_time);
+    free(loc_time);
     send(client, buf, strlen(buf), 0);
     if(header!=NULL)
     {
@@ -232,16 +230,12 @@ void login(int client,struct KeyValue *post_arg)
     }
 }
 
-char *set_cookie()
+char * set_cookie()
 {
     char *cookie=(char *)malloc(sizeof(char)*255);
+    char *loc_time=local_time();
 
-    time_t timep;
-    struct tm *p;
-    time(&timep);
-    p=localtime(&timep);
-
-    sprintf(cookie, "username=nyserver; sessionid=123456; date=%04d-%02d-%02d %02d:%02d:%02d",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
+    sprintf(cookie, "username=nyserver; sessionid=123456; date=%s",loc_time);
     return cookie;
 }
 
