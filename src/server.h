@@ -45,7 +45,7 @@ struct SocketArg
 FILE *log_f;//log
 
 void init_server();
-void load_request(void *arg);
+void parser_request(void *arg);
 int get_line(int client,char *buf,int size);
 struct KeyValue * get_headers(int client);
 struct KeyValue * get_request_arg(char *url,int index);

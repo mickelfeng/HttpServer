@@ -18,7 +18,6 @@ void init_server()
         exit(-1);
     }
     setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
-
     //绑定IP和端口
     name.sin_family = AF_INET;
     name.sin_port = htons(SERVER_PORT);
@@ -49,7 +48,7 @@ void init_server()
         if(client_sock!=-1)
         {
             pthread_t client_pid;
-            pthread_create(&client_pid,NULL,(void *)load_request,(void *)arg);
+            pthread_create(&client_pid,NULL,(void *)parser_request,(void *)arg);
         }
     }
 }
@@ -63,7 +62,7 @@ void stop_server()
     exit(0);
 }
 
-void load_request(void *arg)
+void parser_request(void *arg)
 {
     struct SocketArg *socket_arg=(struct SocketArg *)arg;
     int client=socket_arg->client_sock;
