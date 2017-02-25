@@ -7,7 +7,7 @@
 
 #include "server.h"
 
-void accept_request(struct Request *request);
+void accept_request(struct HttpRequest *request);
 void not_found(int client);
 void site_index(int client);
 void static_file(int client,char *path,char *filetype);

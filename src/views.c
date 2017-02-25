@@ -5,7 +5,7 @@
 #include "views.h"
 
 
-void accept_request(struct Request *request)
+void accept_request(struct HttpRequest *request)
 {
     //GET请求
     if(!strcmp(request->method,"GET"))

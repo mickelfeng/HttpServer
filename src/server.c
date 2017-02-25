@@ -6,6 +6,12 @@
 
 void init_server()
 {
+    queue_head=(struct Queue*)malloc(sizeof(struct Queue));
+    queue_head->next=NULL;
+    queue_head->arg=NULL;
+    queue_tail=queue_head;
+
+
     struct sockaddr_in name;
     struct sockaddr_in remote_client;
     unsigned int client_len;
@@ -42,12 +48,12 @@ void init_server()
     while(1)
     {
         int client_sock=accept(server_socket,(struct sockaddr *)&remote_client,&client_len);
-        struct SocketArg *arg=(struct SocketArg*)malloc(sizeof(struct SocketArg));
-        arg->client_sock=client_sock;
-        arg->ip_address=inet_ntoa(remote_client.sin_addr);
-
         if(client_sock!=-1)
         {
+            struct SocketArg *arg=(struct SocketArg*)malloc(sizeof(struct SocketArg));
+            arg->client_sock=client_sock;
+            arg->ip_address=inet_ntoa(remote_client.sin_addr);
+            
             pthread_t client_pid;
             pthread_create(&client_pid,NULL,(void *)parser_request,(void *)arg);
         }
@@ -70,7 +76,7 @@ void parser_request(void *arg)
     char buf[1024];
     char url[255];
     int read_size;
-    struct Request *request=(struct Request*)malloc(sizeof(struct Request));
+    struct HttpRequest *request=(struct HttpRequest*)malloc(sizeof(struct HttpRequest));
     request->request_arg=NULL;
     request->post_arg=NULL;
     request->client=client;
@@ -333,4 +339,29 @@ char * local_time()
     char *loc_time=(char *)malloc(sizeof(char)*20);
     sprintf(loc_time, "%04d-%02d-%02d %02d:%02d:%02d",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
     return loc_time;
+}
+
+void push(struct SocketArg *arg)
+{
+    queue_tail->arg=arg;
+    queue_tail->next=(struct Queue*)malloc(sizeof(struct Queue));
+    queue_tail=queue_tail->next;
+    queue_tail->next=NULL;
+    queue_tail->arg=NULL;
+}
+
+struct SocketArg *pop()
+{
+    if(!is_empty())
+        return NULL;
+    struct Queue *p=queue_head;
+    struct SocketArg *arg=p->arg;
+    queue_head=queue_head->next;
+    free(p);
+    return arg;
+}
+
+int is_empty()
+{
+    return queue_tail-queue_head;
 }

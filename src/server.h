@@ -17,6 +17,8 @@
 #include <stdarg.h>
 #include <signal.h>
 
+#include "queue.h"
+
 #define SERVER_PORT 8000
 
 struct KeyValue
@@ -26,7 +28,7 @@ struct KeyValue
     struct KeyValue *next;
 };
 
-struct Request
+struct HttpRequest
 {
     int client;
     char method[5];
@@ -42,7 +44,14 @@ struct SocketArg
     char * ip_address;
 };
 
+struct Queue
+{
+    struct SocketArg *arg;
+    struct Queue *next;
+}*queue_head,*queue_tail;
+
 FILE *log_f;//log
+pthread_mutex_t queue_mutex;
 
 void init_server();
 void parser_request(void *arg);
@@ -57,6 +66,10 @@ void server_log(char *string);
 void stop_server();
 char * local_time();
 
-void accept_request(struct Request *request);
+void push(struct SocketArg *arg);
+struct SocketArg * pop();
+int is_empty();
+
+void accept_request(struct HttpRequest *request);
 
 #endif //HTTPSERVER_SERVER_H
