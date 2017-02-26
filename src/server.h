@@ -17,7 +17,7 @@
 #include <stdarg.h>
 #include <signal.h>
 
-#include "queue.h"
+#include "threadpool.h"
 
 #define SERVER_PORT 8000
 
@@ -44,14 +44,8 @@ struct SocketArg
     char * ip_address;
 };
 
-struct Queue
-{
-    struct SocketArg *arg;
-    struct Queue *next;
-}*queue_head,*queue_tail;
-
 FILE *log_f;//log
-pthread_mutex_t queue_mutex;
+struct thread_pool *pool;
 
 void init_server();
 void parser_request(void *arg);

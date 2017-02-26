@@ -6,12 +6,6 @@
 
 void init_server()
 {
-    queue_head=(struct Queue*)malloc(sizeof(struct Queue));
-    queue_head->next=NULL;
-    queue_head->arg=NULL;
-    queue_tail=queue_head;
-
-
     struct sockaddr_in name;
     struct sockaddr_in remote_client;
     unsigned int client_len;
@@ -34,6 +28,7 @@ void init_server()
         exit(-1);
     }
 
+    pool=init_thread_pool(50);
     //开始监听
     if(listen(server_socket, 5)==-1)
     {
@@ -53,9 +48,9 @@ void init_server()
             struct SocketArg *arg=(struct SocketArg*)malloc(sizeof(struct SocketArg));
             arg->client_sock=client_sock;
             arg->ip_address=inet_ntoa(remote_client.sin_addr);
-            
-            pthread_t client_pid;
-            pthread_create(&client_pid,NULL,(void *)parser_request,(void *)arg);
+            push_thread_worker(pool,parser_request,(void *)arg);
+            //pthread_t pid;
+            //pthread_create(&pid,NULL, (void *)parser_request,arg);
         }
     }
 }
@@ -64,6 +59,7 @@ void stop_server()
 {
     char *loc_time=local_time();
     printf("\n%s Stop!\n",loc_time);
+    destroy_thread_pool(pool);
     free(loc_time);
     fclose(log_f);
     exit(0);
@@ -339,29 +335,4 @@ char * local_time()
     char *loc_time=(char *)malloc(sizeof(char)*20);
     sprintf(loc_time, "%04d-%02d-%02d %02d:%02d:%02d",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
     return loc_time;
-}
-
-void push(struct SocketArg *arg)
-{
-    queue_tail->arg=arg;
-    queue_tail->next=(struct Queue*)malloc(sizeof(struct Queue));
-    queue_tail=queue_tail->next;
-    queue_tail->next=NULL;
-    queue_tail->arg=NULL;
-}
-
-struct SocketArg *pop()
-{
-    if(!is_empty())
-        return NULL;
-    struct Queue *p=queue_head;
-    struct SocketArg *arg=p->arg;
-    queue_head=queue_head->next;
-    free(p);
-    return arg;
-}
-
-int is_empty()
-{
-    return queue_tail-queue_head;
 }
