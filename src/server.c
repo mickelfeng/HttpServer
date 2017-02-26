@@ -29,7 +29,7 @@ void init_server()
         exit(-1);
     }
 
-    pool=init_thread_pool(20,50);
+    pool=init_thread_pool(30);
     pthread_create(&keepalive_pid,NULL,(void *)thread_pool_keepalive,(void *)pool);
     //开始监听
     if(listen(server_socket, 5)==-1)
@@ -62,6 +62,7 @@ void stop_server()
     char *loc_time=local_time();
     printf("\n%s Stop!\n",loc_time);
     destroy_thread_pool(pool);
+    pthread_cancel(keepalive_pid);
     free(loc_time);
     fclose(log_f);
     exit(0);
