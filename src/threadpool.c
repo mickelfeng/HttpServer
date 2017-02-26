@@ -24,7 +24,7 @@ struct thread_pool * init_thread_pool(int thread_num)
     return pool;
 }
 
-void push_thread_worker(struct thread_pool *pool,void (*process)(void *arg),void *arg)
+void push_thread_worker(struct thread_pool *pool,void *(*process)(void *arg),void *arg)
 {
     struct thread_worker_queue *p=(struct thread_worker_queue *)calloc(1,sizeof(struct thread_worker_queue));
     pthread_mutex_lock(&(pool->queue_lock));
@@ -84,7 +84,7 @@ int create_detach_thread(struct thread_pool *pool,int index)
     return 0;
 }
 
-void thread_run(void *arg)
+void* thread_run(void *arg)
 {
     struct thread_pool *pool=(struct thread_pool*)arg;
     struct thread_worker_queue *work=NULL;

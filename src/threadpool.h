@@ -9,7 +9,7 @@
 
 struct thread_worker_queue
 {
-    void (*process)(void *arg);  /* 线程处理的任务 */
+    void *(*process)(void *arg);  /* 线程处理的任务 */
     void *arg;                    /* 任务接口参数 */
     struct thread_worker_queue *next;/* 下一个节点 */
 };
@@ -27,9 +27,9 @@ struct thread_pool
 };
 
 struct thread_pool* init_thread_pool(int thread_num);
-void push_thread_worker(struct thread_pool *pool,void (*process)(void *arg),void *arg);
+void push_thread_worker(struct thread_pool *pool,void *(*process)(void *arg),void *arg);
 int  destroy_thread_pool(struct thread_pool *pool);
 int create_detach_thread(struct thread_pool *pool,int index);
-void thread_run(void *arg);
+void *thread_run(void *arg);
 
 #endif //HTTPSERVER_THREADPOOL_H
