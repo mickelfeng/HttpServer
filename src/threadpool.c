@@ -127,7 +127,6 @@ void* thread_routine(void *arg)
         work=pool->head;
         pool->head=pool->head->next;
         pool->queue_size--;
-        printf("%d\n",pool->queue_size);
         pthread_mutex_unlock(&(pool->queue_lock));
         if(work!=NULL)
         {

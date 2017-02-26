@@ -9,9 +9,9 @@
 
 struct thread_worker_queue
 {
-    void *(*process)(void *arg);  /* 线程处理的任务 */
-    void *arg;                    /* 任务接口参数 */
-    struct thread_worker_queue *next;/* 下一个节点 */
+    void *(*process)(void *arg);  //线程处理的任务
+    void *arg;                    //任务参数
+    struct thread_worker_queue *next;
 };
 
 struct thread_pool
