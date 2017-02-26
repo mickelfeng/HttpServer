@@ -29,7 +29,8 @@ void init_server()
         exit(-1);
     }
 
-    pool=init_thread_pool(50);
+    pool=init_thread_pool(20,50);
+    pthread_create(&keepalive_pid,NULL,(void *)thread_pool_keepalive,(void *)pool);
     //开始监听
     if(listen(server_socket, 5)==-1)
     {
