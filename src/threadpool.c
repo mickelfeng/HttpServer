@@ -3,7 +3,6 @@
 struct thread_pool * init_thread_pool(int thread_num)
 {
     struct thread_pool *pool=(struct thread_pool *)calloc(1,sizeof(struct thread_pool));
-    printf("queue_size %d",pool->queue_size);
     pool->thread_num=thread_num;
 
     pool->head=(struct thread_worker_queue*)calloc(1,sizeof(struct thread_worker_queue));
@@ -14,7 +13,7 @@ struct thread_pool * init_thread_pool(int thread_num)
     pool->threadid=(pthread_t *)calloc(thread_num,sizeof(pthread_t));
     for(int index=0;index<thread_num;++index)
     {
-        int ok=create_detach_thread(pool,index);
+        int ok=create_detach_thread(pool,index);//创建分离线程
         if(ok==-1)
         {
             index--;
