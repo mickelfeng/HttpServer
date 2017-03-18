@@ -41,27 +41,40 @@ struct HttpRequest
 struct SocketArg
 {
     intptr_t client_sock;
-    char * ip_address;
+    char *ip_address;
 };
 
 FILE *log_f;//log
 struct thread_pool *pool;
 
 void init_server();
+
 void *parser_request(void *arg);
-int get_line(int client,char *buf,int size);
-struct KeyValue * get_headers(int client);
-struct KeyValue * get_request_arg(char *url,int index);
-struct KeyValue * get_headers(int client);
-char * get_value(struct KeyValue *p,char *key);
-struct KeyValue * get_post_arg(int client,int length);
+
+int get_line(int client, char *buf, int size);
+
+struct KeyValue *get_headers(int client);
+
+struct KeyValue *get_request_arg(char *url, int index);
+
+struct KeyValue *get_headers(int client);
+
+char *get_value(struct KeyValue *p, char *key);
+
+struct KeyValue *get_post_arg(int client, int length);
+
 void free_memory(struct KeyValue *p);
+
 void server_log(char *string);
+
 void stop_server();
-char * local_time();
+
+char *local_time();
 
 void push(struct SocketArg *arg);
-struct SocketArg * pop();
+
+struct SocketArg *pop();
+
 int is_empty();
 
 void accept_request(struct HttpRequest *request);

@@ -9,58 +9,58 @@ void init_server()
     struct sockaddr_in name;
     struct sockaddr_in remote_client;
     unsigned int client_len;
-    int opt=1;
+    int opt = 1;
 
-    int server_socket=socket(AF_INET, SOCK_STREAM, 0);
-    if(server_socket==-1)
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket == -1)
     {
         printf("Error\n");
         exit(-1);
     }
-    setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
+    setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     //绑定IP和端口
     name.sin_family = AF_INET;
     name.sin_port = htons(SERVER_PORT);
     name.sin_addr.s_addr = htonl(INADDR_ANY);
-    if(bind(server_socket,(struct sockaddr *)&name, sizeof(name))==-1)
+    if (bind(server_socket, (struct sockaddr *) &name, sizeof(name)) == -1)
     {
         printf("Bind Error !\n");
         exit(-1);
     }
 
-    pool=init_thread_pool(20);
-    pthread_create(&keepalive_pid,NULL,(void *)thread_pool_keepalive,(void *)pool);
+    pool = init_thread_pool(20);
+    pthread_create(&keepalive_pid, NULL, (void *) thread_pool_keepalive, (void *) pool);
     //开始监听
-    if(listen(server_socket, 5)==-1)
+    if (listen(server_socket, 5) == -1)
     {
         printf("Listen Error !\n");
         exit(-1);
     }
 
-    log_f=fopen("log.output","a");
-    signal(SIGINT,stop_server);
+    log_f = fopen("log.output", "a");
+    signal(SIGINT, stop_server);
 
-    printf("Starting server at http://127.0.0.1:%d/ \nQuit the server with CONTROL-C.\n",SERVER_PORT);
-    while(1)
+    printf("Starting server at http://127.0.0.1:%d/ \nQuit the server with CONTROL-C.\n", SERVER_PORT);
+
+    fd_Setnonblocki
+    while (1)
     {
-        int client_sock=accept(server_socket,(struct sockaddr *)&remote_client,&client_len);
-        if(client_sock!=-1)
+        int client_sock = accept(server_socket, (struct sockaddr *) &remote_client, &client_len);
+        if (client_sock != -1)
         {
-            struct SocketArg *arg=(struct SocketArg*)malloc(sizeof(struct SocketArg));
-            arg->client_sock=client_sock;
-            arg->ip_address=inet_ntoa(remote_client.sin_addr);
-            push_thread_worker(pool,parser_request,(void *)arg);
-            //pthread_t pid;
-            //pthread_create(&pid,NULL, (void *)parser_request,arg);
+            struct SocketArg *arg = (struct SocketArg *) malloc(sizeof(struct SocketArg));
+            arg->client_sock = client_sock;
+            arg->ip_address = inet_ntoa(remote_client.sin_addr);
+            push_thread_worker(pool, parser_request, (void *) arg);
         }
     }
 }
 
 void stop_server()
 {
-    char *loc_time=local_time();
-    printf("\n%s Stop!\n",loc_time);
+    char *loc_time = local_time();
+    printf("\n%s Stop!\n", loc_time);
     destroy_thread_pool(pool);
     pthread_cancel(keepalive_pid);
     free(loc_time);
@@ -68,155 +68,155 @@ void stop_server()
     exit(0);
 }
 
-void* parser_request(void *arg)
+void *parser_request(void *arg)
 {
-    struct SocketArg *socket_arg=(struct SocketArg *)arg;
-    int client=socket_arg->client_sock;
+    struct SocketArg *socket_arg = (struct SocketArg *) arg;
+    int client = socket_arg->client_sock;
     char buf[1024];
     char url[255];
     int read_size;
-    struct HttpRequest *request=(struct HttpRequest*)malloc(sizeof(struct HttpRequest));
-    request->request_arg=NULL;
-    request->post_arg=NULL;
-    request->client=client;
+    struct HttpRequest *request = (struct HttpRequest *) malloc(sizeof(struct HttpRequest));
+    request->request_arg = NULL;
+    request->post_arg = NULL;
+    request->client = client;
 
-    read_size=get_line(client,buf, sizeof(buf));
+    read_size = get_line(client, buf, sizeof(buf));
 
-    char *loc_time=local_time();
+    char *loc_time = local_time();
     char log_string[255];
-    sprintf(log_string,"%s\t%s\t%s\n",loc_time,socket_arg->ip_address,buf);
-    printf("%s",log_string);
+    sprintf(log_string, "%s\t%s\t%s\n", loc_time, socket_arg->ip_address, buf);
+    printf("%s", log_string);
     server_log(log_string);
     free(socket_arg);
 
     //Get method
-    int index=0;
-    while(buf[index]!=' '&&index<read_size)
+    int index = 0;
+    while (buf[index] != ' ' && index < read_size)
     {
-        request->method[index]=buf[index];
+        request->method[index] = buf[index];
         index++;
     }
-    request->method[index]='\0';
+    request->method[index] = '\0';
 
     //Get url
     index++;
-    int url_i=0;
-    while(buf[index]!=' '&&index<read_size&&url_i<sizeof(url))
+    int url_i = 0;
+    while (buf[index] != ' ' && index < read_size && url_i < sizeof(url))
     {
-        url[url_i]=buf[index];
+        url[url_i] = buf[index];
         url_i++;
         index++;
     }
-    url[url_i]='\0';
+    url[url_i] = '\0';
 
     //Get Path
-    index=0;
-    while(url[index]!='\0'&&url[index]!='?')
+    index = 0;
+    while (url[index] != '\0' && url[index] != '?')
     {
-        request->path[index]=url[index];
+        request->path[index] = url[index];
         index++;
     }
-    request->path[index]='\0';
+    request->path[index] = '\0';
 
-    if(url[index]=='?')
+    if (url[index] == '?')
     {
-        request->request_arg=get_request_arg(url,index+1);
+        request->request_arg = get_request_arg(url, index + 1);
     }
 
-    request->headers=get_headers(client);
+    request->headers = get_headers(client);
 
-    if(!strcmp(request->method,"POST"))
+    if (!strcmp(request->method, "POST"))
     {
-        char *content_length=get_value(request->headers,"Content-Length");
-        int length=atoi(content_length);
-        char *content_type=get_value(request->headers,"Content-Type");
-        if(!strcmp(content_type,"application/x-www-form-urlencoded"))
+        char *content_length = get_value(request->headers, "Content-Length");
+        int length = atoi(content_length);
+        char *content_type = get_value(request->headers, "Content-Type");
+        if (!strcmp(content_type, "application/x-www-form-urlencoded"))
         {
-            request->post_arg=get_post_arg(request->client,length);
+            request->post_arg = get_post_arg(request->client, length);
         }
     }
     accept_request(request);
+    close(request->client);
     return NULL;
 }
 
-struct KeyValue* get_post_arg(int client,int length)
+struct KeyValue *get_post_arg(int client, int length)
 {
-    char *post_string=(char *)malloc(sizeof(char)*(length+2));
-    struct KeyValue *post_arg=NULL;
+    char *post_string = (char *) malloc(sizeof(char) * (length + 2));
+    struct KeyValue *post_arg = NULL;
     char c;
     int index;
-    for(index=0;index<length;++index)
+    for (index = 0; index < length; ++index)
     {
-        ssize_t num=recv(client,&c,1,0);
-        if(num>0)
+        ssize_t num = recv(client, &c, 1, 0);
+        if (num > 0)
         {
-            post_string[index]=c;
-        }
-        else
+            post_string[index] = c;
+        } else
         {
             break;
         }
     }
-    post_string[index]='\0';
-    post_arg=get_request_arg(post_string,0);
+    post_string[index] = '\0';
+    post_arg = get_request_arg(post_string, 0);
     free(post_string);
     return post_arg;
 }
 
-char * get_value(struct KeyValue *p,char *key)
+char *get_value(struct KeyValue *p, char *key)
 {
-    while(p->name!=NULL)
+    while (p->name != NULL)
     {
-        if(!strcmp(p->name,key))
+        if (!strcmp(p->name, key))
             return p->value;
-        p=p->next;
+        p = p->next;
     }
     return NULL;
 }
 
-struct KeyValue * get_headers(int client)
+struct KeyValue *get_headers(int client)
 {
     char line[255];
-    int read_size=0;
-    struct KeyValue *header=(struct KeyValue*)malloc(sizeof(struct KeyValue));
-    header->name=NULL;
-    header->next=NULL;
-    header->value=NULL;
-    struct KeyValue *tail=header;
-    while((read_size=get_line(client,line,sizeof(line)))>0)
+    int read_size = 0;
+    struct KeyValue *header = (struct KeyValue *) malloc(sizeof(struct KeyValue));
+    header->name = NULL;
+    header->next = NULL;
+    header->value = NULL;
+    struct KeyValue *tail = header;
+    while ((read_size = get_line(client, line, sizeof(line))) > 0)
     {
         char name[80];
         char value[255];
-        int index=0;
-        while(line[index]!=':')
+        int index = 0;
+        while (line[index] != ':')
         {
-            name[index]=line[index];
+            name[index] = line[index];
             index++;
         }
-        name[index]='\0';
-        index+=2;
+        name[index] = '\0';
+        index += 2;
 
-        int i=0;
-        while(line[index]!='\0')
+        int i = 0;
+        while (line[index] != '\0')
         {
-            value[i]=line[index];
+            value[i] = line[index];
             i++;
             index++;
         }
-        value[i]='\0';
+        value[i] = '\0';
 
-        tail->name=(char *)malloc(sizeof(char)*strlen(name));
-        strcpy(tail->name,name);
-        tail->value=(char *)malloc(sizeof(char)*strlen(value));
-        strcpy(tail->value,value);
+        tail->name = (char *) malloc(sizeof(char) * strlen(name));
+        strcpy(tail->name, name);
+        tail->value = (char *) malloc(sizeof(char) * strlen(value));
+        strcpy(tail->value, value);
 
-        tail->next=(struct KeyValue*)malloc(sizeof(struct KeyValue));
-        tail=tail->next;
-        tail->name=NULL;
-        tail->value=NULL;
-        tail->next=NULL;
+        tail->next = (struct KeyValue *) malloc(sizeof(struct KeyValue));
+        tail = tail->next;
+        tail->name = NULL;
+        tail->value = NULL;
+        tail->next = NULL;
     }
-    if(header->name==NULL)
+    if (header->name == NULL)
     {
         free_memory(header);
         return NULL;
@@ -224,87 +224,86 @@ struct KeyValue * get_headers(int client)
     return header;
 }
 
-int get_line(int client,char *buf,int size)
+int get_line(int client, char *buf, int size)
 {
-    char c='\0';
-    int read_size=0;
-    while(read_size<size-1&&c!='\n')
+    char c = '\0';
+    int read_size = 0;
+    while (read_size < size - 1 && c != '\n')
     {
-        ssize_t num=recv(client,&c,1,0);
-        if(num>0)
+        ssize_t num = recv(client, &c, 1, 0);
+        if (num > 0)
         {
-            if(c=='\r')
+            if (c == '\r')
             {
-                num=recv(client,&c,1,MSG_PEEK);
-                if(num>0&&c=='\n')
-                    recv(client,&c,1,0);
+                num = recv(client, &c, 1, MSG_PEEK);
+                if (num > 0 && c == '\n')
+                    recv(client, &c, 1, 0);
                 else
-                    c='\n';
+                    c = '\n';
             }
-            if(c!='\n')
+            if (c != '\n')
             {
-                buf[read_size]=c;
+                buf[read_size] = c;
                 read_size++;
             }
-        }
-        else
+        } else
         {
-            c='\n';
+            c = '\n';
         }
     }
-    buf[read_size]='\0';
+    buf[read_size] = '\0';
     return read_size;
 }
 
-struct KeyValue * get_request_arg(char *string,int index)
+struct KeyValue *get_request_arg(char *string, int index)
 {
-    struct KeyValue * request_arg=(struct KeyValue*)malloc(sizeof(struct KeyValue));
-    struct KeyValue *tail=request_arg;
-    tail->next=NULL;
-    tail->name=NULL;
-    tail->value=NULL;
-    size_t length=strlen(string);
+    struct KeyValue *request_arg = (struct KeyValue *) malloc(sizeof(struct KeyValue));
+    struct KeyValue *tail = request_arg;
+    tail->next = NULL;
+    tail->name = NULL;
+    tail->value = NULL;
+    size_t length = strlen(string);
 
-    while(index<length)
+    while (index < length)
     {
         char name[255];
         char value[255];
-        int i=0;
-        while(index<length&&string[index]!='=')
+        int i = 0;
+        while (index < length && string[index] != '=')
         {
-            name[i]=string[index];
+            name[i] = string[index];
             i++;
             index++;
         }
-        name[i]='\0';
-        if(index>=length)
+        name[i] = '\0';
+        if (index >= length)
             break;
-        i=0;
+        i = 0;
         index++;
-        while(index<length&&string[index]!='&')
+        while (index < length && string[index] != '&')
         {
-            value[i]=string[index];
+            value[i] = string[index];
             index++;
             i++;
         }
-        value[i]='\0';
+        value[i] = '\0';
 
-        if(strcmp(value,"")==0)
+        if (strcmp(value, "") == 0)
             continue;
-        tail->name=(char *)malloc(sizeof(char)*strlen(name));
-        strcpy(tail->name,name);
+        tail->name = (char *) malloc(sizeof(char) * strlen(name));
+        strcpy(tail->name, name);
 
-        tail->value=(char *)malloc(sizeof(char)*strlen(value));
-        strcpy(tail->value,value);
+        tail->value = (char *) malloc(sizeof(char) * strlen(value));
+        strcpy(tail->value, value);
 
-        tail->next=(struct KeyValue*)malloc(sizeof(struct KeyValue));
-        tail=tail->next;
-        tail->value=NULL;
-        tail->next=NULL;
-        tail->name=NULL;
+        tail->next = (struct KeyValue *) malloc(sizeof(struct KeyValue));
+        tail = tail->next;
+        tail->value = NULL;
+        tail->next = NULL;
+        tail->name = NULL;
         index++;
     }
-    if(request_arg->name==NULL)
+    if (request_arg->name == NULL)
     {
         free_memory(request_arg);
         return NULL;
@@ -314,29 +313,30 @@ struct KeyValue * get_request_arg(char *string,int index)
 
 void free_memory(struct KeyValue *p)
 {
-    if(p==NULL)
+    if (p == NULL)
         return;
     free_memory(p->next);
-    if(p->name!=NULL)
+    if (p->name != NULL)
         free(p->name);
-    if(p->value!=NULL)
+    if (p->value != NULL)
         free(p->value);
     free(p);
 }
 
 void server_log(char *string)
 {
-    fprintf(log_f, "%s",string);
+    fprintf(log_f, "%s", string);
 }
 
-char * local_time()
+char *local_time()
 {
     time_t timep;
     struct tm *p;
     time(&timep);
-    p=localtime(&timep);
+    p = localtime(&timep);
 
-    char *loc_time=(char *)malloc(sizeof(char)*20);
-    sprintf(loc_time, "%04d-%02d-%02d %02d:%02d:%02d",1900+p->tm_year,p->tm_mon,p->tm_mday,p->tm_hour,p->tm_min,p->tm_sec);
+    char *loc_time = (char *) malloc(sizeof(char) * 20);
+    sprintf(loc_time, "%04d-%02d-%02d %02d:%02d:%02d", 1900 + p->tm_year, p->tm_mon, p->tm_mday, p->tm_hour, p->tm_min,
+            p->tm_sec);
     return loc_time;
 }

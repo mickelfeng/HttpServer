@@ -30,11 +30,16 @@ struct thread_pool
 
 pthread_t keepalive_pid;
 
-struct thread_pool* init_thread_pool(int thread_num);
-void push_thread_worker(struct thread_pool *pool,void *(*process)(void *arg),void *arg);
-int  destroy_thread_pool(struct thread_pool *pool);
-int create_detach_thread(struct thread_pool *pool,int index);
+struct thread_pool *init_thread_pool(int thread_num);
+
+void push_thread_worker(struct thread_pool *pool, void *(*process)(void *arg), void *arg);
+
+int destroy_thread_pool(struct thread_pool *pool);
+
+int create_detach_thread(struct thread_pool *pool, int index);
+
 void thread_pool_keepalive(void *arg);
+
 void *thread_routine(void *arg);
 
 #endif //HTTPSERVER_THREADPOOL_H
