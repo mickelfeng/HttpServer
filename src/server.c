@@ -43,7 +43,6 @@ void init_server()
 
     printf("Starting server at http://127.0.0.1:%d/ \nQuit the server with CONTROL-C.\n", SERVER_PORT);
 
-    fd_Setnonblocki
     while (1)
     {
         int client_sock = accept(server_socket, (struct sockaddr *) &remote_client, &client_len);
